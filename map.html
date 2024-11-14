@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Treasure Radar</title>
+    <link rel="stylesheet" href="styles/map.css">
+</head>
+<body>
+    <div class="container">
+        <p class="track">Следуй за стрелочкой</p>
+        <div class="arrow-container">
+            <div id="arrow" class="arrows"></div>
+        </div>
+        <p id="status">Загрузка...</p>
+
+        <div id="geo-modal" class="geo-modal">
+            <div class="geo-modal-content">
+                <p>Для правильного отображения данных нам нужно получить доступ к вашей геолокации.</p>
+                <button id="allow-geo">Разрешить</button>
+                <button id="deny-geo">Отказать</button>
+            </div>
+        </div>
+
+        <div class="hearts-container" id="hearts-container"></div>
+    </div>
+
+    <script src="scripts/map.js"></script>
+</body>
+</html>
