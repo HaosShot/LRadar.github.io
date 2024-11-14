@@ -4,15 +4,15 @@ const targetCoords = {
     longitude: 38.306330
 };
 
-let userCoords = null; // Координаты пользователя
+let userCoords = null; // Текущие координаты пользователя
 
 // DOM элементы
 const arrowElement = document.getElementById('arrow');
 const statusElement = document.getElementById('status');
 const geoModal = document.getElementById('geo-modal');
 
-// Функция для вычисления угла направления на цель
-function calculateBearing(lat1, lon1, lat2, lon2) {
+// Функция для вычисления угла на координаты цели относительно текущего положения
+function calculateAngleToTarget(lat1, lon1, lat2, lon2) {
     const rad = Math.PI / 180;
     const dLon = (lon2 - lon1) * rad;
     const y = Math.sin(dLon) * Math.cos(lat2 * rad);
@@ -20,24 +20,24 @@ function calculateBearing(lat1, lon1, lat2, lon2) {
     return (Math.atan2(y, x) * (180 / Math.PI) + 360) % 360;
 }
 
-// Функция для обновления направления стрелки
-function updateArrow() {
+// Функция для обновления направления стрелки на точные координаты цели
+function updateArrowDirection() {
     if (userCoords) {
-        const bearingToTarget = calculateBearing(
+        const angleToTarget = calculateAngleToTarget(
             userCoords.latitude,
             userCoords.longitude,
             targetCoords.latitude,
             targetCoords.longitude
         );
 
-        // Поворот стрелки на нужный угол
-        arrowElement.style.transform = `rotate(${bearingToTarget}deg)`;
-        statusElement.textContent = "Следуйте за стрелочкой!";
+        // Поворот стрелки на угол, чтобы указывать на цель
+        arrowElement.style.transform = `rotate(${angleToTarget}deg)`;
+        statusElement.textContent = "Следуйте за стрелкой!";
     }
 }
 
-// Получение геолокации пользователя
-function getLocation() {
+// Функция для отслеживания геолокации пользователя
+function trackUserLocation() {
     if (navigator.geolocation) {
         navigator.geolocation.watchPosition(
             (position) => {
@@ -45,7 +45,7 @@ function getLocation() {
                     latitude: position.coords.latitude,
                     longitude: position.coords.longitude
                 };
-                updateArrow();
+                updateArrowDirection();
             },
             (error) => {
                 statusElement.textContent = "Не удалось получить местоположение";
@@ -58,10 +58,10 @@ function getLocation() {
     }
 }
 
-// Запрашиваем разрешение на доступ к геолокации
+// Обработчики для разрешения или запрета доступа к геолокации
 document.getElementById('allow-geo').addEventListener('click', () => {
     geoModal.style.display = 'none';
-    getLocation();
+    trackUserLocation();
 });
 
 document.getElementById('deny-geo').addEventListener('click', () => {
