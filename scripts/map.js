@@ -1,132 +1,83 @@
-const targetLocation = { lat: 54.007822, lng: 38.306330 };
-let currentHeading = 0;
-let route = [];
-let nextCheckpointIndex = 0;
-let tracking = true; 
+// Координаты цели
+const targetCoords = {
+    latitude: 54.007822,
+    longitude: 38.306330
+};
 
-function getUserLocation() {
+let userCoords = null; // Координаты пользователя
+let heading = null;    // Текущий угол ориентации устройства
+
+// DOM элементы
+const arrowElement = document.getElementById('arrow');
+const statusElement = document.getElementById('status');
+const geoModal = document.getElementById('geo-modal');
+
+// Функция для вычисления угла направления на цель
+function calculateBearing(lat1, lon1, lat2, lon2) {
+    const rad = Math.PI / 180;
+    const dLon = (lon2 - lon1) * rad;
+    const y = Math.sin(dLon) * Math.cos(lat2 * rad);
+    const x = Math.cos(lat1 * rad) * Math.sin(lat2 * rad) - Math.sin(lat1 * rad) * Math.cos(lat2 * rad) * Math.cos(dLon);
+    return (Math.atan2(y, x) * (180 / Math.PI) + 360) % 360;
+}
+
+// Функция для обновления направления стрелки
+function updateArrow() {
+    if (userCoords && heading !== null) {
+        const bearingToTarget = calculateBearing(
+            userCoords.latitude,
+            userCoords.longitude,
+            targetCoords.latitude,
+            targetCoords.longitude
+        );
+
+        // Угол, на который нужно повернуть стрелку
+        const angle = bearingToTarget - heading;
+
+        // Поворот стрелки на нужный угол
+        arrowElement.style.transform = `rotate(${angle}deg)`;
+        statusElement.textContent = "Следуйте за стрелочкой!";
+    }
+}
+
+// Получение геолокации пользователя
+function getLocation() {
     if (navigator.geolocation) {
-        showGeoModal();
+        navigator.geolocation.watchPosition(
+            (position) => {
+                userCoords = {
+                    latitude: position.coords.latitude,
+                    longitude: position.coords.longitude
+                };
+                updateArrow();
+            },
+            (error) => {
+                statusElement.textContent = "Не удалось получить местоположение";
+                console.error(error);
+            },
+            { enableHighAccuracy: true }
+        );
     } else {
-        document.getElementById("status").textContent = "Геолокация не поддерживается этим браузером.";
+        statusElement.textContent = "Ваше устройство не поддерживает геолокацию";
     }
 }
 
-function showGeoModal() {
-    const geoModal = document.getElementById('geo-modal');
-    if (!geoModal) return; 
-    geoModal.style.display = 'flex';
-
-    document.getElementById('allow-geo').addEventListener('click', function() {
-        geoModal.style.display = 'none';
-        calculateRouteOnce();
-        if (window.DeviceOrientationEvent) {
-            window.addEventListener('deviceorientation', handleOrientation);
-        } else {
-            document.getElementById('status').textContent = "Ориентация устройства не поддерживается.";
-        }
-    }, { once: true });
-
-    document.getElementById('deny-geo').addEventListener('click', function() {
-        geoModal.style.display = 'none';
-        document.getElementById('status').textContent = 'Разреши :)';
-    }, { once: true });
+// Получение ориентации устройства
+function getDeviceOrientation(event) {
+    heading = event.alpha; // Обновляем текущий угол ориентации устройства
+    updateArrow();
 }
 
-function calculateRouteOnce() {
-    navigator.geolocation.getCurrentPosition((position) => {
-        const userLat = position.coords.latitude;
-        const userLng = position.coords.longitude;
+// Запрашиваем разрешение на доступ к геолокации
+document.getElementById('allow-geo').addEventListener('click', () => {
+    geoModal.style.display = 'none';
+    getLocation();
+});
 
-        route = calculateRoute(userLat, userLng, targetLocation.lat, targetLocation.lng);
-        updateArrowToCheckpoint(userLat, userLng);
-    }, showError, { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 });
-}
-
-function updateArrowToCheckpoint(userLat, userLng) {
-    if (nextCheckpointIndex >= route.length) {
-        document.getElementById("status").textContent = "На месте";
-        stopTracking();
-    } else {
-        const checkpoint = route[nextCheckpointIndex];
-        const targetAngle = calculateAngle(userLat, userLng, checkpoint.lat, checkpoint.lng);
-        const distanceToCheckpoint = calculateDistance(userLat, userLng, checkpoint.lat, checkpoint.lng);
-
-        if (distanceToCheckpoint < 10) { 
-            nextCheckpointIndex++;
-        }
-
-        updateArrow(targetAngle);
-        document.getElementById("status").textContent = "Чапай";
-    }
-}
-
-function handleOrientation(event) {
-    if (!tracking) return; 
-    if (event.absolute || event.alpha !== null) {
-        currentHeading = event.alpha;
-        navigator.geolocation.getCurrentPosition((position) => {
-            const userLat = position.coords.latitude;
-            const userLng = position.coords.longitude;
-            updateArrowToCheckpoint(userLat, userLng);
-        });
-    }
-}
-
-function updateArrow(targetAngle) {
-    const arrow = document.getElementById("arrow");
-    const adjustedAngle = (targetAngle - currentHeading + 360) % 360;
-    arrow.style.transform = `translate(-50%, -50%) rotate(${adjustedAngle}deg)`;
-}
-
-function calculateRoute(lat1, lng1, lat2, lng2) {
-    const route = [];
-    const steps = 20;
-    for (let i = 0; i <= steps; i++) {
-        const lat = lat1 + (lat2 - lat1) * (i / steps);
-        const lng = lng1 + (lng2 - lng1) * (i / steps);
-        route.push({ lat, lng });
-    }
-    return route;
-}
-
-function calculateAngle(lat1, lng1, lat2, lng2) {
-    const deltaLng = lng2 - lng1;
-    const y = Math.sin(deltaLng) * Math.cos(lat2);
-    const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(deltaLng);
-    return Math.atan2(y, x) * (180 / Math.PI);
-}
-
-function calculateDistance(lat1, lng1, lat2, lng2) {
-    const R = 6371000;
-    const dLat = (lat2 - lat1) * Math.PI / 180;
-    const dLng = (lng2 - lng1) * Math.PI / 180;
-    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-              Math.sin(dLng / 2) * Math.sin(dLng / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c;
-}
-
-function showError(error) {
-    const status = document.getElementById("status");
-    if (!status) return;
-    switch(error.code) {
-        case error.PERMISSION_DENIED:
-            status.textContent = "Пользователь отклонил запрос на доступ к геолокации.";
-            break;
-        case error.POSITION_UNAVAILABLE:
-            status.textContent = "Информация о местоположении недоступна.";
-            break;
-        case error.TIMEOUT:
-            status.textContent = "Время запроса геолокации истекло.";
-            break;
-        case error.UNKNOWN_ERROR:
-            status.textContent = "Неизвестная ошибка.";
-            break;
-    }
-}
-
+document.getElementById('deny-geo').addEventListener('click', () => {
+    geoModal.style.display = 'none';
+    statusElement.textContent = "Геолокация отключена. Невозможно указать направление.";
+});
 function createHearts() {
     const heartsContainer = document.getElementById("hearts-container");
     const authContainer = document.querySelector(".geo-modal");
@@ -155,14 +106,14 @@ function createHearts() {
     }
 }
 
-window.onload = createHearts;
-window.onresize = createHearts;
-
-function stopTracking() {
-    tracking = false;
-    window.removeEventListener('deviceorientation', handleOrientation);
+// Проверяем, поддерживается ли событие `DeviceOrientationEvent`
+if (window.DeviceOrientationEvent) {
+    window.addEventListener('deviceorientation', getDeviceOrientation);
+} else {
+    statusElement.textContent = "Ваше устройство не поддерживает ориентацию.";
 }
 
-document.addEventListener('DOMContentLoaded', function() {
-    getUserLocation();
+// Показ модального окна для разрешения геолокации при загрузке страницы
+window.addEventListener('load', () => {
+    geoModal.style.display = 'flex';
 });
