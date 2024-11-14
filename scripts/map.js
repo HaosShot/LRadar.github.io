@@ -64,12 +64,28 @@ function getLocation() {
 
 // Получение ориентации устройства
 function getDeviceOrientation(event) {
-    // Используем `webkitCompassHeading`, если он доступен (например, на iOS)
     if (event.webkitCompassHeading !== undefined) {
+        // Используем `webkitCompassHeading`, если доступен (iOS)
         heading = event.webkitCompassHeading;
     } else {
-        // Для Android используем `alpha`, который измеряет ориентацию относительно севера
-        heading = event.alpha;
+        // На Android используем комбинацию `alpha`, `beta`, `gamma` для вычисления направления на север
+        const alpha = event.alpha ? event.alpha : 0;
+        const beta = event.beta ? event.beta : 0;
+        const gamma = event.gamma ? event.gamma : 0;
+
+        // Рассчитываем направление с учетом углов устройства
+        const alphaRad = alpha * (Math.PI / 180);
+        const betaRad = beta * (Math.PI / 180);
+        const gammaRad = gamma * (Math.PI / 180);
+
+        // Корректируем угол поворота с учетом всех углов
+        const compassHeading = Math.atan2(
+            Math.sin(alphaRad) * Math.cos(betaRad),
+            Math.cos(alphaRad) * Math.cos(gammaRad) + Math.sin(gammaRad) * Math.sin(betaRad) * Math.sin(alphaRad)
+        );
+
+        // Переводим в градусы и приводим к значению 0–360
+        heading = (compassHeading * (180 / Math.PI) + 360) % 360;
     }
     updateArrow();
 }
@@ -84,35 +100,6 @@ document.getElementById('deny-geo').addEventListener('click', () => {
     geoModal.style.display = 'none';
     statusElement.textContent = "Геолокация отключена. Невозможно указать направление.";
 });
-
-// Создание анимации с сердечками
-function createHearts() {
-    const heartsContainer = document.getElementById("hearts-container");
-    const authContainer = document.querySelector(".geo-modal");
-    const titleCont = document.querySelector(".container");
-    if (!heartsContainer || !authContainer || !titleCont) return;
-
-    heartsContainer.innerHTML = "";
-    const step = window.innerWidth <= 544 ? 115 : 100; 
-    const rows = Math.ceil(window.innerHeight / step);
-    const cols = Math.ceil(window.innerWidth / step);
-
-    for (let row = 0; row < rows; row++) {
-        for (let col = 0; col < cols; col++) {
-            const posX = col * step + (row % 2 === 0 ? 0 : step / 2); 
-            const posY = row * step;
-
-            const heart = document.createElement("div");
-            heart.classList.add("heart");
-            heart.innerHTML = "❤️";
-            heart.style.left = `${posX}px`;
-            heart.style.top = `${posY}px`;
-            heart.style.animationDelay = `${Math.random() * 2}s`;
-
-            heartsContainer.appendChild(heart);
-        }
-    }
-}
 
 // Проверяем, поддерживается ли событие `DeviceOrientationEvent`
 if (window.DeviceOrientationEvent) {
