@@ -5,7 +5,6 @@ const targetCoords = {
 };
 
 let userCoords = null; // Координаты пользователя
-let heading = 0;    // Текущий угол ориентации относительно севера
 
 // DOM элементы
 const arrowElement = document.getElementById('arrow');
@@ -23,7 +22,7 @@ function calculateBearing(lat1, lon1, lat2, lon2) {
 
 // Функция для обновления направления стрелки
 function updateArrow() {
-    if (userCoords && heading !== null) {
+    if (userCoords) {
         const bearingToTarget = calculateBearing(
             userCoords.latitude,
             userCoords.longitude,
@@ -31,11 +30,8 @@ function updateArrow() {
             targetCoords.longitude
         );
 
-        // Угол, на который нужно повернуть стрелку относительно северного направления
-        const angle = bearingToTarget - heading;
-
         // Поворот стрелки на нужный угол
-        arrowElement.style.transform = `rotate(${angle}deg)`;
+        arrowElement.style.transform = `rotate(${bearingToTarget}deg)`;
         statusElement.textContent = "Следуйте за стрелочкой!";
     }
 }
@@ -62,34 +58,6 @@ function getLocation() {
     }
 }
 
-// Получение ориентации устройства
-function getDeviceOrientation(event) {
-    if (event.webkitCompassHeading !== undefined) {
-        // Используем `webkitCompassHeading`, если доступен (iOS)
-        heading = event.webkitCompassHeading;
-    } else {
-        // На Android используем комбинацию `alpha`, `beta`, `gamma` для вычисления направления на север
-        const alpha = event.alpha ? event.alpha : 0;
-        const beta = event.beta ? event.beta : 0;
-        const gamma = event.gamma ? event.gamma : 0;
-
-        // Рассчитываем направление с учетом углов устройства
-        const alphaRad = alpha * (Math.PI / 180);
-        const betaRad = beta * (Math.PI / 180);
-        const gammaRad = gamma * (Math.PI / 180);
-
-        // Корректируем угол поворота с учетом всех углов
-        const compassHeading = Math.atan2(
-            Math.sin(alphaRad) * Math.cos(betaRad),
-            Math.cos(alphaRad) * Math.cos(gammaRad) + Math.sin(gammaRad) * Math.sin(betaRad) * Math.sin(alphaRad)
-        );
-
-        // Переводим в градусы и приводим к значению 0–360
-        heading = (compassHeading * (180 / Math.PI) + 360) % 360;
-    }
-    updateArrow();
-}
-
 // Запрашиваем разрешение на доступ к геолокации
 document.getElementById('allow-geo').addEventListener('click', () => {
     geoModal.style.display = 'none';
@@ -100,13 +68,6 @@ document.getElementById('deny-geo').addEventListener('click', () => {
     geoModal.style.display = 'none';
     statusElement.textContent = "Геолокация отключена. Невозможно указать направление.";
 });
-
-// Проверяем, поддерживается ли событие `DeviceOrientationEvent`
-if (window.DeviceOrientationEvent) {
-    window.addEventListener('deviceorientation', getDeviceOrientation);
-} else {
-    statusElement.textContent = "Ваше устройство не поддерживает ориентацию.";
-}
 
 // Показ модального окна для разрешения геолокации при загрузке страницы
 window.addEventListener('load', () => {
