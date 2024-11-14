@@ -1,10 +1,11 @@
 // Координаты цели
 const targetCoords = {
-    latitude: 54.007822,
-    longitude: 38.306330
+    latitude: 54.01009212861899, 
+    longitude: 38.306232767983126
 };
 
-let userCoords = null; // Текущие координаты пользователя
+let userCoords = null;   // Текущие координаты пользователя
+let deviceHeading = 0;   // Ориентация устройства
 
 // DOM элементы
 const arrowElement = document.getElementById('arrow');
@@ -22,7 +23,7 @@ function calculateAngleToTarget(lat1, lon1, lat2, lon2) {
 
 // Функция для обновления направления стрелки на точные координаты цели
 function updateArrowDirection() {
-    if (userCoords) {
+    if (userCoords !== null) {
         const angleToTarget = calculateAngleToTarget(
             userCoords.latitude,
             userCoords.longitude,
@@ -30,8 +31,11 @@ function updateArrowDirection() {
             targetCoords.longitude
         );
 
-        // Поворот стрелки на угол, чтобы указывать на цель
-        arrowElement.style.transform = `rotate(${angleToTarget}deg)`;
+        // Угол для поворота стрелки с учетом ориентации устройства
+        const adjustedAngle = angleToTarget - deviceHeading;
+
+        // Поворот стрелки на итоговый угол, чтобы указывать на цель
+        arrowElement.style.transform = `rotate(${adjustedAngle}deg)`;
         statusElement.textContent = "Следуйте за стрелкой!";
     }
 }
@@ -58,6 +62,13 @@ function trackUserLocation() {
     }
 }
 
+// Функция для получения ориентации устройства
+function trackDeviceOrientation(event) {
+    // Получаем угол вращения вокруг вертикальной оси (азимут)
+    deviceHeading = event.alpha || 0;
+    updateArrowDirection();
+}
+
 // Обработчики для разрешения или запрета доступа к геолокации
 document.getElementById('allow-geo').addEventListener('click', () => {
     geoModal.style.display = 'none';
@@ -73,3 +84,10 @@ document.getElementById('deny-geo').addEventListener('click', () => {
 window.addEventListener('load', () => {
     geoModal.style.display = 'flex';
 });
+
+// Проверка поддержки ориентации устройства и отслеживание ориентации
+if (window.DeviceOrientationEvent) {
+    window.addEventListener('deviceorientation', trackDeviceOrientation);
+} else {
+    statusElement.textContent = "Ваше устройство не поддерживает ориентацию.";
+}
