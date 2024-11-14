@@ -5,7 +5,7 @@ const targetCoords = {
 };
 
 let userCoords = null; // Координаты пользователя
-let heading = null;    // Текущий угол ориентации устройства
+let heading = 0;    // Текущий угол ориентации относительно севера
 
 // DOM элементы
 const arrowElement = document.getElementById('arrow');
@@ -31,7 +31,7 @@ function updateArrow() {
             targetCoords.longitude
         );
 
-        // Угол, на который нужно повернуть стрелку
+        // Угол, на который нужно повернуть стрелку относительно северного направления
         const angle = bearingToTarget - heading;
 
         // Поворот стрелки на нужный угол
@@ -64,7 +64,13 @@ function getLocation() {
 
 // Получение ориентации устройства
 function getDeviceOrientation(event) {
-    heading = event.alpha; // Обновляем текущий угол ориентации устройства
+    // Используем `webkitCompassHeading`, если он доступен (например, на iOS)
+    if (event.webkitCompassHeading !== undefined) {
+        heading = event.webkitCompassHeading;
+    } else {
+        // Для Android используем `alpha`, который измеряет ориентацию относительно севера
+        heading = event.alpha;
+    }
     updateArrow();
 }
 
@@ -78,6 +84,8 @@ document.getElementById('deny-geo').addEventListener('click', () => {
     geoModal.style.display = 'none';
     statusElement.textContent = "Геолокация отключена. Невозможно указать направление.";
 });
+
+// Создание анимации с сердечками
 function createHearts() {
     const heartsContainer = document.getElementById("hearts-container");
     const authContainer = document.querySelector(".geo-modal");
