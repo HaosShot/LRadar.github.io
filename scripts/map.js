@@ -1,93 +1,61 @@
-// Координаты цели
-const targetCoords = {
-    latitude: 54.01009212861899, 
-    longitude: 38.306232767983126
-};
+document.addEventListener('DOMContentLoaded', function () {
+    const geoModal = document.getElementById('geo-modal');
+    const allowGeoButton = document.getElementById('allow-geo');
+    const denyGeoButton = document.getElementById('deny-geo');
+    const arrow = document.getElementById('arrow');
+    const status = document.getElementById('status');
+    
+    const targetCoords = [54.009963, 38.306521]; // Пример координат цели (Москва)
 
-let userCoords = null;   // Текущие координаты пользователя
-let deviceHeading = 0;   // Ориентация устройства
+    let userLat, userLon;
 
-// DOM элементы
-const arrowElement = document.getElementById('arrow');
-const statusElement = document.getElementById('status');
-const geoModal = document.getElementById('geo-modal');
+    // Функция для получения данных о текущем местоположении пользователя
+    function getUserLocation() {
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(function(position) {
+                userLat = position.coords.latitude;
+                userLon = position.coords.longitude;
 
-// Функция для вычисления угла на координаты цели относительно текущего положения
-function calculateAngleToTarget(lat1, lon1, lat2, lon2) {
-    const rad = Math.PI / 180;
-    const dLon = (lon2 - lon1) * rad;
-    const y = Math.sin(dLon) * Math.cos(lat2 * rad);
-    const x = Math.cos(lat1 * rad) * Math.sin(lat2 * rad) - Math.sin(lat1 * rad) * Math.cos(lat2 * rad) * Math.cos(dLon);
-    return (Math.atan2(y, x) * (180 / Math.PI) + 360) % 360;
-}
+                status.textContent = "Геолокация получена.";
+                geoModal.style.display = "none"; // Скрыть модальное окно
 
-// Функция для обновления направления стрелки на точные координаты цели
-function updateArrowDirection() {
-    if (userCoords !== null) {
-        const angleToTarget = calculateAngleToTarget(
-            userCoords.latitude,
-            userCoords.longitude,
-            targetCoords.latitude,
-            targetCoords.longitude
-        );
-
-        // Угол для поворота стрелки с учетом ориентации устройства
-        const adjustedAngle = angleToTarget - deviceHeading;
-
-        // Поворот стрелки на итоговый угол, чтобы указывать на цель
-        arrowElement.style.transform = `rotate(${adjustedAngle}deg)`;
-        statusElement.textContent = "Следуйте за стрелкой!";
-    }
-}
-
-// Функция для отслеживания геолокации пользователя
-function trackUserLocation() {
-    if (navigator.geolocation) {
-        navigator.geolocation.watchPosition(
-            (position) => {
-                userCoords = {
-                    latitude: position.coords.latitude,
-                    longitude: position.coords.longitude
-                };
+                // Обновить направление стрелки
                 updateArrowDirection();
-            },
-            (error) => {
-                statusElement.textContent = "Не удалось получить местоположение";
-                console.error(error);
-            },
-            { enableHighAccuracy: true }
-        );
-    } else {
-        statusElement.textContent = "Ваше устройство не поддерживает геолокацию";
+            }, function() {
+                status.textContent = "Ошибка получения геолокации.";
+                geoModal.style.display = "block"; // Показать модальное окно
+            });
+        } else {
+            alert("Геолокация не поддерживается вашим браузером.");
+        }
     }
-}
 
-// Функция для получения ориентации устройства
-function trackDeviceOrientation(event) {
-    // Получаем угол вращения вокруг вертикальной оси (азимут)
-    deviceHeading = event.alpha || 0;
-    updateArrowDirection();
-}
+    // Функция для расчета направления стрелки
+    function getArrowDirection(start, end) {
+        const dx = end[1] - start[1]; // Разница в долготе
+        const dy = end[0] - start[0]; // Разница в широте
+        const angle = Math.atan2(dy, dx) * (180 / Math.PI);
+        return angle;
+    }
 
-// Обработчики для разрешения или запрета доступа к геолокации
-document.getElementById('allow-geo').addEventListener('click', () => {
-    geoModal.style.display = 'none';
-    trackUserLocation();
+    // Обновление угла стрелки
+    function updateArrowDirection() {
+        if (userLat && userLon) {
+            const direction = getArrowDirection([userLat, userLon], targetCoords);
+            arrow.style.transform = `rotate(${direction}deg)`; // Поворачиваем стрелку в нужное направление
+        }
+    }
+
+    // Обработчики событий для модального окна
+    allowGeoButton.addEventListener('click', function () {
+        getUserLocation();
+    });
+
+    denyGeoButton.addEventListener('click', function () {
+        geoModal.style.display = "none";
+        status.textContent = "Геолокация не была предоставлена.";
+    });
+
+    // Инициализация
+    getUserLocation(); // Получаем геолокацию сразу после загрузки
 });
-
-document.getElementById('deny-geo').addEventListener('click', () => {
-    geoModal.style.display = 'none';
-    statusElement.textContent = "Геолокация отключена. Невозможно указать направление.";
-});
-
-// Показ модального окна для разрешения геолокации при загрузке страницы
-window.addEventListener('load', () => {
-    geoModal.style.display = 'flex';
-});
-
-// Проверка поддержки ориентации устройства и отслеживание ориентации
-if (window.DeviceOrientationEvent) {
-    window.addEventListener('deviceorientation', trackDeviceOrientation);
-} else {
-    statusElement.textContent = "Ваше устройство не поддерживает ориентацию.";
-}
