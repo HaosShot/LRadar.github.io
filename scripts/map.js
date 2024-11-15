@@ -1,61 +1,103 @@
 document.addEventListener('DOMContentLoaded', function () {
-    const geoModal = document.getElementById('geo-modal');
-    const allowGeoButton = document.getElementById('allow-geo');
-    const denyGeoButton = document.getElementById('deny-geo');
-    const arrow = document.getElementById('arrow');
-    const status = document.getElementById('status');
-    
-    const targetCoords = [54.009963, 38.306521]; // Пример координат цели (Москва)
+    if (typeof L === 'undefined') {
+        console.error("Leaflet не загружен. Проверьте подключение библиотеки.");
+        return;
+    }
 
-    let userLat, userLon;
+    const map = L.map('map').setView([54.009963, 38.306521], 19); 
 
-    // Функция для получения данных о текущем местоположении пользователя
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    }).addTo(map);
+
+
+    const targetCoords = [54.009963, 38.306521]; 
+
+
+
     function getUserLocation() {
         if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(function(position) {
-                userLat = position.coords.latitude;
-                userLon = position.coords.longitude;
-
-                status.textContent = "Геолокация получена.";
-                geoModal.style.display = "none"; // Скрыть модальное окно
-
-                // Обновить направление стрелки
-                updateArrowDirection();
-            }, function() {
-                status.textContent = "Ошибка получения геолокации.";
-                geoModal.style.display = "block"; // Показать модальное окно
-            });
+            navigator.geolocation.getCurrentPosition(onGeoSuccess, onGeoError);
         } else {
             alert("Геолокация не поддерживается вашим браузером.");
         }
     }
 
-    // Функция для расчета направления стрелки
-    function getArrowDirection(start, end) {
-        const dx = end[1] - start[1]; // Разница в долготе
-        const dy = end[0] - start[0]; // Разница в широте
-        const angle = Math.atan2(dy, dx) * (180 / Math.PI);
-        return angle;
+    function onGeoSuccess(position) {
+        const userCoords = [position.coords.latitude, position.coords.longitude];
+        const status = document.getElementById('status');
+        status.textContent = "Маршрут загружен!";
+
+        map.setView(userCoords, 13);
+
+        L.marker(userCoords).addTo(map)
+            .bindPopup("Вы здесь")
+            .openPopup();
+
+        const routeControl = L.Routing.control({
+            waypoints: [
+                L.latLng(userCoords[0], userCoords[1]),
+                L.latLng(targetCoords[0], targetCoords[1])
+            ],
+            routeWhileDragging: true,
+        }).addTo(map);
+
+        updateArrowPosition(userCoords);
     }
 
-    // Обновление угла стрелки
-    function updateArrowDirection() {
-        if (userLat && userLon) {
-            const direction = getArrowDirection([userLat, userLon], targetCoords);
-            arrow.style.transform = `rotate(${direction}deg)`; // Поворачиваем стрелку в нужное направление
-        }
+    function onGeoError(error) {
+        console.warn("Ошибка получения геолокации: ", error);
+        document.getElementById('status').textContent = "Не удалось получить вашу геолокацию.";
     }
 
-    // Обработчики событий для модального окна
-    allowGeoButton.addEventListener('click', function () {
+    document.getElementById('allow-geo').addEventListener('click', function () {
+        document.getElementById('geo-modal').style.display = 'none';
         getUserLocation();
     });
 
-    denyGeoButton.addEventListener('click', function () {
-        geoModal.style.display = "none";
-        status.textContent = "Геолокация не была предоставлена.";
+    document.getElementById('deny-geo').addEventListener('click', function () {
+        document.getElementById('geo-modal').style.display = 'none';
+        document.getElementById('status').textContent = "Вы отказались от предоставления доступа к геолокации.";
     });
 
-    // Инициализация
-    getUserLocation(); // Получаем геолокацию сразу после загрузки
+    document.getElementById('geo-modal').style.display = 'block';
 });
+
+function createHearts() {
+    const heartsContainer = document.getElementById("hearts-container");
+    const authContainer = document.querySelector(".container");
+    const titleCont = document.querySelector(".geo-modal");
+  
+    if (!heartsContainer || !authContainer || !titleCont) return;
+
+    heartsContainer.innerHTML = "";
+
+    const authRect = authContainer.getBoundingClientRect();
+    const titleRect = titleCont.getBoundingClientRect();
+
+    const step = window.innerWidth <= 544 ? 115 : 100; 
+    const heartSize = 10; 
+
+    const rows = Math.ceil(window.innerHeight / step); 
+    const cols = Math.ceil(window.innerWidth / step); 
+
+    for (let row = 0; row < rows; row++) {
+        for (let col = 0; col < cols; col++) {
+            const posX = col * step + (row % 2 === 0 ? 0 : step / 2); 
+            const posY = row * step;
+
+            const heart = document.createElement("div");
+            heart.classList.add("heart");
+            heart.innerHTML = "❤️";
+
+            heart.style.left = `${posX}px`;
+            heart.style.top = `${posY}px`;
+            heart.style.animationDelay = `${Math.random() * 2}s`; 
+
+            heartsContainer.appendChild(heart);
+        }
+    }
+}
+
+window.onload = createHearts;
+window.onresize = createHearts;
